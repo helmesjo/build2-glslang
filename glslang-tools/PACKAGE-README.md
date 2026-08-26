@@ -1,9 +1,8 @@
-# glslang-tools - An executable
+# glslang-tools - GLSL and ESSL compiler front-end command line tool
 
-This is a `build2` package for the [`<UPSTREAM-NAME>`](https://<UPSTREAM-URL>)
-executable. It is a <SUMMARY-OF-FUNCTIONALITY>.
-
-Note that the `glslang-tools` executable in this package provides `build2` metadata.
+This is a `build2` package for the [`glslang`](https://github.com/KhronosGroup/glslang)
+command line tool. It is the standalone wrapper around the Khronos GLSL and
+ESSL reference front-end (historically named `glslangValidator`).
 
 
 ## Usage
@@ -13,13 +12,13 @@ To start using `glslang-tools` in your project, add the following build-time
 appropriate:
 
 ```
-depends: * glslang-tools ^<VERSION>
+depends: * glslang-tools ^16.5.0
 ```
 
 Then import the executable in your `buildfile`:
 
 ```
-import! [metadata] <TARGET> = glslang-tools%exe{<TARGET>}
+import glslang = glslang-tools%exe{glslang}
 ```
 
 
@@ -28,18 +27,14 @@ import! [metadata] <TARGET> = glslang-tools%exe{<TARGET>}
 This package provides the following importable targets:
 
 ```
-exe{<TARGET>}
+exe{glslang}
 ```
 
-<DESCRIPTION-OF-IMPORTABLE-TARGETS>
+This is upstream's `glslang-standalone` target, with output name `glslang`.
+Debian ships it as `glslang-tools`. The compatibility name `glslangValidator`
+is also installed next to `glslang`.
 
 
 ## Configuration variables
 
-This package provides the following configuration variables:
-
-```
-[bool] config.glslang_tools.<VARIABLE> ?= false
-```
-
-<DESCRIPTION-OF-CONFIG-VARIABLES>
+This package has no configuration variables.
