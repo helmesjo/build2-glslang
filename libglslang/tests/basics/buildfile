@@ -1,0 +1,3 @@
+import libs = libglslang%lib{glslang}
+
+exe{driver}: {hxx cxx}{**} $libs testscript{**}
