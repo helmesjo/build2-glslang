@@ -1,16 +1,20 @@
 : 1
 name: glslang-tools
-version: 0.1.0-a.0.z
+version: 16.5.0-a.0.z
 language: c++
-project: build2-glslang
-summary: glslang-tools C++ executable
-license: other: proprietary ; Not free/open source.
+project: glslang
+summary: GLSL and ESSL compiler front-end command line tool
+topics: graphics, shader, glsl, spir-v, vulkan
+license: BSD-3-Clause AND BSD-2-Clause AND MIT AND Apache-2.0 AND GPL-3.0-or-later WITH Bison-exception-2.2 AND LicenseRef-AML-glslang AND LicenseRef-MIT-Khronos-old
 description-file: README.md
 package-description-file: PACKAGE-README.md
 changes-file: CHANGES.md
-url: https://example.org/upstream
-email: upstream@example.org
-package-url: https://github.com/build2-packaging/build2-glslang
+url: https://www.khronos.org/opengles/sdk/Reference-Compiler/
+doc-url: https://github.com/KhronosGroup/glslang
+src-url: https://github.com/KhronosGroup/glslang
+package-url: https://github.com/build2-packaging/glslang
 package-email: packaging@build2.org ; Mailing list.
+requires: c++17
 depends: * build2 >= 0.18.0
 depends: * bpkg >= 0.18.0
+depends: libglslang == $
