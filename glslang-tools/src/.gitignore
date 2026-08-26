@@ -1,5 +1,13 @@
-glslang-tools
+# Forwarded bin/exe{glslang} (src/glslang/ is the upstream overlay).
+#
+/bin/glslang
+/bin/glslangValidator
+
+# Generated from glslang/ExtensionHeaders/*.glsl (in-source builds).
+#
+/generated/
 
 # Testscript output directory (can be a symlink).
 #
-test-glslang-tools
+test-glslang
+/bin/test-glslang

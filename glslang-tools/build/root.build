@@ -2,6 +2,11 @@
 #
 #cxx.internal.scope = current
 
+# Upstream requires C++17 (CMAKE_CXX_STANDARD 17), but StandAlone.cpp (the
+# only source this package compiles itself) has none of libglslang's
+# ParseHelper.cpp C++26 enum-arithmetic issue, so latest is used
+# unconditionally here.
+#
 cxx.std = latest
 
 using cxx

@@ -1,0 +1,16 @@
+exe{glslang}: {hxx cxx}{../StandAlone/**} {hxx}{../glslang/** ../SPIRV/**} \
+              $libs ../testscript
+
+exe{glslang}: hxx{../generated/glslang/glsl_intrinsic_header}
+
+# Compatibility name installed by upstream and by Debian glslang-tools.
+#
+exe{glslangValidator}: exe{glslang}
+{{
+  diag ln $>
+  rm -f $path($>)
+  ln -s $path.leaf($path($<)) $path($>)
+  touch --after $path($<) $path($>)
+}}
+
+./: exe{glslang} exe{glslangValidator}

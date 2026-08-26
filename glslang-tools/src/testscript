@@ -1,0 +1,12 @@
+: version
+:
+$* -dumpversion >>~"/EOO/"
+/.*$(version.major)\.$(version.minor)\.$(version.patch).*/
+EOO
+
+: compile-vert
+:
+$* --stdin -S vert -V -o out.spv 2>- &out.spv <<EOI
+#version 450
+void main () {}
+EOI

@@ -1,9 +1,115 @@
 libs =
-#import libs += libhello%lib{hello}
+import libs = libglslang%lib{glslang}
+import libs += libglslang%lib{glslang-default-resource-limits}
 
-exe{glslang-tools}: {hxx cxx}{**} $libs StandAlone/testscript
+windows = ($cxx.target.class == 'windows')
+
+# Same transformation as upstream gen_extension_headers.py, without Python.
+# Each ExtensionHeaders/*.glsl file becomes a raw-string symbol named from
+# the basename up to the first dot (foo.bar.glsl -> foo).
+#
+exts = file{glslang/ExtensionHeaders/*.glsl}
+
+hxx{generated/glslang/glsl_intrinsic_header}: $exts
+hxx{generated/glslang/glsl_intrinsic_header}: fsdir{generated/glslang/}
+fsdir{generated/glslang/}: fsdir{generated/}
+
+hxx{generated/glslang/glsl_intrinsic_header}:
+{
+  dist = false
+}
+
+hxx{generated/glslang/glsl_intrinsic_header}:
+{{
+  diag gen $>
+  o = $path($>)
+
+  cat <<'HDR' >$o
+/***************************************************************************
+ *
+ * Copyright (c) 2015-2021 The Khronos Group Inc.
+ * Copyright (c) 2015-2021 Valve Corporation
+ * Copyright (c) 2015-2021 LunarG, Inc.
+ * Copyright (c) 2015-2021 Google Inc.
+ * Copyright (c) 2021 Advanced Micro Devices, Inc.All rights reserved.
+ *
+ ****************************************************************************/
+#pragma once
+
+#ifndef _INTRINSIC_EXTENSION_HEADER_H_
+#define _INTRINSIC_EXTENSION_HEADER_H_
+
+HDR
+
+  names =
+  for f: $path($filter($<, file))
+  {
+    n = $regex.replace($path.leaf($f), '\..*', '')
+    names += $n
+    id = "$n"_GLSL
+    echo 'std::string '$id' = R"(' >>$o
+    cat $f >>$o
+    echo "" >>$o
+    echo ')";' >>$o
+    echo "" >>$o
+  }
+
+  cat <<'HDR' >>$o
+
+std::string getIntrinsic(const char* const* shaders, int n) {
+    std::string shaderString = "";
+    for (int i = 0; i < n; i++) {
+HDR
+
+  for n: $names
+  {
+    id = "$n"_GLSL
+    echo '    if (strstr(shaders[i], "'$n'") != nullptr) {' >>$o
+    echo '        shaderString.append('$id');' >>$o
+    echo '    }' >>$o
+  }
+
+  cat <<'HDR' >>$o
+    }
+    return shaderString;
+}
+
+#endif
+HDR
+}}
+
+# exe{glslang} lives in bin/ so it does not collide with the glslang/
+# overlay in this directory. List $exts so dist ships the .glsl inputs
+# (the generated header is produced at build and is not distributed).
+#
+./: bin/ $exts
 
 out_pfx = [dir_path] $out_root/src/
 src_pfx = [dir_path] $src_root/src/
 
-cxx.poptions =+ "-I$out_pfx" "-I$src_pfx"
+cxx.poptions =+ "-I$out_pfx" "-I$src_pfx" "-I$out_pfx/generated"
+
+cxx.poptions += -DENABLE_SPIRV -DENABLE_HLSL -DENABLE_OPT=0
+
+if $windows
+  cxx.poptions += -DGLSLANG_OSINCLUDE_WIN32
+else
+  cxx.poptions += -DGLSLANG_OSINCLUDE_UNIX
+
+if ($cxx.class == 'msvc')
+{
+  cxx.coptions += /GR- /wd4251
+  cxx.poptions += -D_HAS_EXCEPTIONS=0
+  cxx.libs += psapi.lib
+}
+elif ($cxx.target.system == 'mingw32')
+{
+  cxx.coptions += -fno-rtti -fno-exceptions
+  cxx.libs += -lpsapi
+}
+else
+  cxx.coptions += -fno-rtti -fno-exceptions
+
+# Don't install private headers.
+#
+hxx{*}: install = false
