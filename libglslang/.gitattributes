@@ -1,0 +1,6 @@
+# Directory symlinks into upstream/ (Windows requires explicit type).
+# See build2.org/article/symlinks.xhtml and git symlink=dir.
+#
+include/glslang/Public symlink=dir
+src/SPIRV symlink=dir
+src/glslang symlink=dir
