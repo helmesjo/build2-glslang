@@ -1,4 +1,6 @@
-cxx.std = latest
+# Match the library (upstream CMAKE_CXX_STANDARD 17).
+#
+cxx.std = 17
 
 using cxx
 

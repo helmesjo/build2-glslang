@@ -2,9 +2,19 @@
 #
 #cxx.internal.scope = current
 
-cxx.std = latest
+# Upstream requires C++17 (CMAKE_CXX_STANDARD 17), so latest is used
+# everywhere except Clang: its C++26 mode rejects the enum-to-enum
+# arithmetic in ParseHelper.cpp's originMemberHash/tmpMemberHash (P2864
+# removed the implicit conversion), while GCC's C++26 mode still accepts
+# it. cxx.guess is loaded early to make $cxx.id.type available before
+# cxx.std is set.
+#
+using cxx.guess
+
+cxx.std = ($cxx.id.type == 'clang' ? 17 : latest)
 
 using cxx
+using in
 
 hxx{*}: extension = h
 cxx{*}: extension = cpp

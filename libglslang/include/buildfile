@@ -1,6 +1,23 @@
-pub_hdrs = hxx{**}
+using in
+
+# Public headers plus generated glslang/build_info.h. spirv.hpp11 is
+# matched as file{} because its extension is not .h.
+#
+pub_hdrs = hxx{** -glslang/build_info} hxx{glslang/build_info} \
+           file{glslang/SPIRV/*.hpp11}
 
 ./: $pub_hdrs
+
+# Generated from upstream's build_info.h.tmpl (symlinked as build_info.h.in).
+#
+hxx{glslang/build_info}: in{glslang/build_info}
+{
+  in.symbol = '@'
+  major = $version.major
+  minor = $version.minor
+  patch = $version.patch
+  flavor = ""
+}
 
 # Install recreating subdirectories.
 #
@@ -8,4 +25,9 @@ hxx{*}:
 {
   install         = include/
   install.subdirs = true
+}
+
+file{glslang/SPIRV/*.hpp11}:
+{
+  install = include/glslang/SPIRV/
 }

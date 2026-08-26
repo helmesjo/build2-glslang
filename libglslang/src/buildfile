@@ -2,6 +2,10 @@ intf_libs = # Interface dependencies.
 impl_libs = # Implementation dependencies.
 #import xxxx_libs += libhello%lib{hello}
 
+windows = ($cxx.target.class == 'windows')
+macos   = ($cxx.target.class == 'macos')
+bsd     = ($cxx.target.class == 'bsd')
+
 # Public headers.
 #
 pub = [dir_path] ../include/
@@ -10,11 +14,39 @@ include $pub
 
 pub_hdrs = $($pub/ pub_hdrs)
 
-lib{glslang}: $pub/{$pub_hdrs}
-
 # Private headers and sources as well as dependencies.
 #
-lib{glslang}: {hxx cxx}{**} $impl_libs $intf_libs
+# Upstream compiles GenericCodeGen, MachineIndependent, OSDependent, and
+# SPIRV sources into the glslang library (CMakeLists.txt in glslang/ and
+# SPIRV/). ResourceLimits is a separate library. StandAlone is the CLI.
+#
+lib{glslang}: $pub/{$pub_hdrs}
+
+lib{glslang}: {hxx cxx}{** -glslang/stub \
+                           -glslang/OSDependent/** \
+                           -glslang/ResourceLimits/**} \
+              $impl_libs $intf_libs
+
+lib{glslang}: file{SPIRV/*.hpp11}: include = adhoc
+
+lib{glslang}: hxx{glslang/OSDependent/osinclude}
+lib{glslang}: cxx{glslang/OSDependent/Windows/ossource}: include = $windows
+lib{glslang}: cxx{glslang/OSDependent/Unix/ossource}: include = (!$windows)
+
+# Default resource limits used by the CLI and by consumers that want
+# upstream's built-in TBuiltInResource values.
+#
+lib{glslang-default-resource-limits}: $pub/{$pub_hdrs}
+lib{glslang-default-resource-limits}: {hxx cxx}{glslang/ResourceLimits/**} \
+                                      $impl_libs $intf_libs
+
+# Upstream's SPIRV CMake target is a stub (glslang/stub.cpp) that re-exports
+# glslang. SPIR-V sources are compiled into lib{glslang}. The stub exports
+# stub_library_function() for back-compat (KhronosGroup/glslang#3882).
+#
+lib{SPIRV}: $pub/{$pub_hdrs} cxx{glslang/stub} lib{glslang}
+
+./: lib{glslang} lib{glslang-default-resource-limits} lib{SPIRV}
 
 # Build options.
 #
@@ -26,28 +58,109 @@ src_pfx_src = [dir_path] $src_root/src/
 cxx.poptions =+ "-I$out_pfx_src" "-I$src_pfx_src" \
                 "-I$out_pfx_inc" "-I$src_pfx_inc"
 
-#obja{*}: cxx.poptions += -DGLSLANG_STATIC_BUILD
-#objs{*}: cxx.poptions += -DGLSLANG_SHARED_BUILD
+# Match upstream CMake add_compile_definitions() in the project root
+# CMakeLists.txt. ENABLE_OPT is off because SPIRV-Tools is not packaged.
+#
+cxx.poptions += -DENABLE_SPIRV -DENABLE_HLSL -DENABLE_OPT=0
+
+if $windows
+  cxx.poptions += -DGLSLANG_OSINCLUDE_WIN32
+else
+  cxx.poptions += -DGLSLANG_OSINCLUDE_UNIX
+
+# Shared library symbol export (visibility.h).
+#
+objs{*}: cxx.poptions += -DGLSLANG_IS_SHARED_LIBRARY=1 -DGLSLANG_EXPORTING=1
+
+if ($cxx.class != 'msvc')
+  objs{*}: cxx.coptions += -fvisibility=hidden
+
+# Upstream ENABLE_RTTI/ENABLE_EXCEPTIONS default off.
+#
+if ($cxx.class == 'msvc')
+{
+  cxx.coptions += /GR- /wd4251
+  cxx.poptions += -D_HAS_EXCEPTIONS=0
+
+  obj{glslang/ResourceLimits/resource_limits_c}: \
+    cxx.poptions += -D_CRT_SECURE_NO_WARNINGS
+}
+else
+  cxx.coptions += -fno-rtti -fno-exceptions
+
+# Bison output triggers this on GCC/Clang. Upstream disables it for that TU.
+#
+if ($cxx.id != 'msvc')
+  obj{glslang/MachineIndependent/glslang_tab}: \
+    cxx.coptions += -Wno-unused-but-set-variable
+
+if ($cxx.id == 'gcc')
+{
+  obj{SPIRV/GlslangToSpv}: cxx.coptions += -Wno-array-bounds
+  obj{glslang/MachineIndependent/ParseHelper}: \
+    cxx.coptions += -Wno-maybe-uninitialized
+}
+
+if (!$windows)
+{
+  cxx.libs += -pthread
+  lib{glslang}: cxx.export.libs += -pthread
+}
 
 # Export options.
 #
-lib{glslang}:
+lib{glslang} lib{glslang-default-resource-limits}:
 {
   cxx.export.poptions = "-I$out_pfx_inc" "-I$src_pfx_inc"
-  cxx.export.libs = $intf_libs
+  cxx.export.libs += $intf_libs
 }
 
-#liba{glslang}: cxx.export.poptions += -DGLSLANG_STATIC
-#libs{glslang}: cxx.export.poptions += -DGLSLANG_SHARED
+lib{SPIRV}:
+{
+  cxx.export.poptions = "-I$out_pfx_inc" "-I$src_pfx_inc"
+  cxx.export.libs = lib{glslang}
+}
+
+libs{glslang} libs{glslang-default-resource-limits} libs{SPIRV}: \
+  cxx.export.poptions += -DGLSLANG_IS_SHARED_LIBRARY=1
 
 # For pre-releases use the complete version to make sure they cannot
 # be used in place of another pre-release or the final version. See
 # the version module for details on the version.* variable values.
 #
+# A final release matches upstream SOVERSION (major) and VERSION
+# (major.minor.patch): libglslang.so.16 on Linux, libglslang.16.dylib
+# on macOS. BSD versions inside the extension (libglslang.so.16).
+# Upstream ships an unversioned DLL name on Windows (glslang.dll),
+# so bin.lib.version is left unset there.
+#
+# Do not set the platform-independent -$major.$minor suffix on BSD.
+# That suffix is embedded in the library name, and together with
+# extension = so.$major it would produce libglslang-16.5.so.16.
+#
 if $version.pre_release
-  lib{glslang}: bin.lib.version = "-$version.project_id"
-else
-  lib{glslang}: bin.lib.version = "-$version.major.$version.minor"
+  glslang_lib_version = "-$version.project_id"
+elif $macos
+  glslang_lib_version = ".$version.major"
+elif (!$windows && !$bsd)
+{
+  glslang_lib_version = "-$version.major.$version.minor" \
+    linux@"$version.major.$version.minor.$version.patch"
+}
+
+if $defined(glslang_lib_version)
+{
+  lib{glslang}: bin.lib.version = $glslang_lib_version
+  lib{glslang-default-resource-limits}: bin.lib.version = $glslang_lib_version
+  lib{SPIRV}: bin.lib.version = $glslang_lib_version
+}
+
+if (!$version.pre_release && $bsd)
+{
+  libs{glslang}: extension = "so.$version.major"
+  libs{glslang-default-resource-limits}: extension = "so.$version.major"
+  libs{SPIRV}: extension = "so.$version.major"
+}
 
 # Don't install private headers.
 #
