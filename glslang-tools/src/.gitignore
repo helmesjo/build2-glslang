@@ -1,0 +1,5 @@
+glslang-tools
+
+# Testscript output directory (can be a symlink).
+#
+test-glslang-tools
