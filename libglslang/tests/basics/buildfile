@@ -1,3 +1,7 @@
 import libs = libglslang%lib{glslang}
+import libs += libglslang%lib{glslang-default-resource-limits}
 
-exe{driver}: {hxx cxx}{**} $libs testscript{**}
+exe{driver}: {hxx cxx}{**} $libs
+
+if ($cxx.class == 'msvc')
+  exe{driver}: cxx.coptions += /wd4251

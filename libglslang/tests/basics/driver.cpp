@@ -1,34 +1,48 @@
-#include <sstream>
-#include <stdexcept>
-
-#include <glslang/glslang.h>
+#include <glslang/Public/ShaderLang.h>
+#include <glslang/Public/ResourceLimits.h>
+#include <glslang/SPIRV/GlslangToSpv.h>
+#include <glslang/build_info.h>
 
 #undef NDEBUG
 #include <cassert>
+#include <vector>
 
 int main ()
 {
-  using namespace std;
-  using namespace glslang;
+  glslang::Version v = glslang::GetVersion ();
+  assert (v.major == GLSLANG_VERSION_MAJOR);
+  assert (v.minor == GLSLANG_VERSION_MINOR);
+  assert (v.patch == GLSLANG_VERSION_PATCH);
 
-  // Basics.
-  //
-  {
-    ostringstream o;
-    say_hello (o, "World");
-    assert (o.str () == "Hello, World!\n");
-  }
+  assert (glslang::InitializeProcess ());
 
-  // Empty name.
-  //
-  try
-  {
-    ostringstream o;
-    say_hello (o, "");
-    assert (false);
-  }
-  catch (const invalid_argument& e)
-  {
-    assert (e.what () == string ("empty name"));
-  }
+  const char* src =
+    "#version 450\n"
+    "void main () {}\n";
+
+  glslang::TShader shader (EShLangVertex);
+  shader.setStrings (&src, 1);
+  shader.setEnvInput (glslang::EShSourceGlsl,
+                      EShLangVertex,
+                      glslang::EShClientVulkan,
+                      100);
+  shader.setEnvClient (glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
+  shader.setEnvTarget (glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+
+  const TBuiltInResource* resources = GetDefaultResources ();
+  assert (resources != nullptr);
+
+  EShMessages messages = static_cast<EShMessages> (
+    EShMsgSpvRules | EShMsgVulkanRules);
+  assert (shader.parse (resources, 450, false, messages));
+
+  glslang::TProgram program;
+  program.addShader (&shader);
+  assert (program.link (messages));
+
+  std::vector<unsigned int> spirv;
+  glslang::GlslangToSpv (*program.getIntermediate (EShLangVertex), spirv);
+  assert (!spirv.empty ());
+
+  glslang::FinalizeProcess ();
 }
