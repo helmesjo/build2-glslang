@@ -46,6 +46,7 @@ Public headers install under `include/glslang/`. Typical includes:
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
+#include <glslang/Include/Types.h>
 #include <glslang/build_info.h>
 ```
 
