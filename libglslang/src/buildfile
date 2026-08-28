@@ -81,12 +81,18 @@ if ($cxx.class == 'msvc')
 {
   cxx.coptions += /GR- /wd4251
   cxx.poptions += -D_HAS_EXCEPTIONS=0
-
-  obj{glslang/ResourceLimits/resource_limits_c}: \
-    cxx.poptions += -D_CRT_SECURE_NO_WARNINGS
 }
 else
   cxx.coptions += -fno-rtti -fno-exceptions
+
+# strncpy() in resource_limits_c.cpp triggers a deprecation warning from the
+# UCRT headers on any Windows compiler, not just cl.exe (e.g. clang targeting
+# MSVC-compatible Windows also picks it up), so this is not folded into the
+# $cxx.class == 'msvc' block above.
+#
+if $windows
+  obj{glslang/ResourceLimits/resource_limits_c}: \
+    cxx.poptions += -D_CRT_SECURE_NO_WARNINGS
 
 # Bison output triggers this on GCC/Clang. Upstream disables it for that TU.
 #
@@ -96,9 +102,33 @@ if ($cxx.id != 'msvc')
 
 if ($cxx.id == 'gcc')
 {
-  obj{SPIRV/GlslangToSpv}: cxx.coptions += -Wno-array-bounds
+  # PpContext.h's TokenizableIncludeFile handling trips this on GCC 15+ at
+  # -O3, depending on inlining decisions, in whichever translation unit ends
+  # up inlining it (observed in different TUs across otherwise-identical
+  # configurations), hence the blanket rather than per-TU suppression.
+  #
+  cxx.coptions += -Wno-array-bounds
+
   obj{glslang/MachineIndependent/ParseHelper}: \
     cxx.coptions += -Wno-maybe-uninitialized
+
+  # GCC 14 -O3 false positive: vector<bool>::reserve() in
+  # Instruction::reserveOperands() (spvIR.h, inlined into GlslangToSpv.cpp)
+  # is misread as an oversized memmove into a smaller destination.
+  #
+  obj{SPIRV/GlslangToSpv}: cxx.coptions += -Wno-stringop-overflow
+}
+
+if ($cxx.id == 'msvc')
+{
+  # Narrowing conversions (int64_t/size_t to int/unsigned int) in upstream
+  # parsing and reflection code, all on values already range-limited by the
+  # language grammar.
+  #
+  obj{glslang/HLSL/hlslParseHelper}: cxx.coptions += /wd4244
+  obj{glslang/MachineIndependent/ParseHelper}: cxx.coptions += /wd4244
+  obj{glslang/MachineIndependent/SymbolTable}: cxx.coptions += /wd4267
+  obj{SPIRV/GlslangToSpv}: cxx.coptions += /wd4267
 }
 
 if (!$windows)
