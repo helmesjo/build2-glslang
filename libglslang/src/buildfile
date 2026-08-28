@@ -109,9 +109,16 @@ if (!$windows)
 
 # Export options.
 #
+# ENABLE_HLSL is exported because it changes inline function bodies in
+# the installed public headers (TSampler::clear(), TSampler::operator==(),
+# TShader::getEnvTargetHlslFunctionality1() in Types.h/ShaderLang.h). Since
+# it is always defined for this build, consumers must see the same
+# definition or risk an ODR violation between their translation units
+# and the library.
+#
 lib{glslang} lib{glslang-default-resource-limits}:
 {
-  cxx.export.poptions = "-I$out_pfx_inc" "-I$src_pfx_inc"
+  cxx.export.poptions = "-I$out_pfx_inc" "-I$src_pfx_inc" -DENABLE_HLSL
   cxx.export.libs += $intf_libs
 }
 
